@@ -9,7 +9,7 @@ import WelcomeOverlay from './WelcomeOverlay.vue'
 import ControlsBar from './ControlsBar.vue'
 import { ensureCatOrdering } from '../logic/gameplay/orders'
 import { startBgLoop, initBgMusicPersistence, setBgmVolume, setSfxVolume } from '../logic/audio'
-import { markGameStart, useGameState } from '../state/game'
+import { markGameStart, useGameState } from '../state/game.js'
 import { getRandomQuote } from '../logic/quotes'
 
 const game = useGameState()
