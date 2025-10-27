@@ -11,8 +11,9 @@ const catalog = [
   { level: 6, name: '巨无霸蛋糕' }
 ]
 
-// 心情与节奏参数
-const decayPerSec = 1
+// 心情与节奏参数（总时长 60s：从 100 降至 0）
+const moodTotalSeconds = 60
+const decayPerSec = 100 / moodTotalSeconds
 const impatientThreshold = 60
 const angryThreshold = 30
 const eatHoldSeconds = 5

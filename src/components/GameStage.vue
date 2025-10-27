@@ -5,11 +5,13 @@
     <!-- 交互与视觉指示层（覆盖在 matter 渲染 canvas 上方） -->
     <div class="overlay">
       <div v-if="game.over" class="game-over">
-        <div class="go-card">
-          <div class="cat-face">{{ game.win ? '😺 喵喵！超棒～亲密度满啦！' : '😿 呜喵～这局失败了…' }}</div>
-          <h2 class="go-title">{{ game.win ? '恭喜喵！小店掌柜为你打呼噜～' : '别灰心喵～再合一合就会更强！' }}</h2>
-          <p class="go-desc">{{ game.win ? '再来一局，试试更快达成目标！' : '提示：同款撞一撞→升级更高级！' }}</p>
-          <div class="cta"><button class="go-restart" @click="handleRestart">再来一局喵！(≧◡≦)</button></div>
+        <div class="go-card" :class="game.win ? 'success' : 'fail'">
+          <div class="cat-face">{{ goPhrase }}</div>
+          <h2 class="go-title">{{ game.win ? '亲密度满喵！' : '这局没撑住喵～' }}</h2>
+          <p v-if="game.win" class="go-desc">总用时：{{ formatElapsed((game.endedAtMs ?? Date.now()) - (game.startedAtMs ?? Date.now())) }}</p>
+          <p v-else class="go-desc">提示：同款撞一撞→升级更高级；别让甜点掉下桌！</p>
+          <div class="pk">📸 截图分享，和好友PK！</div>
+          <div class="cta"><button class="go-restart" @click="handleRestart">再来一局喵！</button></div>
         </div>
       </div>
       <div class="zones-layer">
@@ -55,6 +57,7 @@
       </div>
       <div class="drinks-layer">
         <div v-for="d in drinks" :key="d.id" class="drink"
+          :class="(game.over && !game.win) ? failClassFor(d.id) : ''"
           :style="{
             transform: 'translate(' + d.x + 'px,' + d.y + 'px) rotate(' + d.angle + 'rad)',
             width: (d.radius * 2) + 'px',
@@ -66,7 +69,7 @@
         </div>
       </div>
       <div class="drops-layer">
-        <div v-for="d in drops" :key="'drop-'+d.id" class="drop" :style="{ transform: 'translate(' + d.x + 'px,' + d.y + 'px) rotate(' + d.angle + 'rad)' }">
+        <div v-for="d in drops" :key="'drop-'+d.id" class="drop" :class="d.effect === 'consume' ? 'consume' : ''" :style="{ transform: 'translate(' + d.x + 'px,' + d.y + 'px) rotate(' + d.angle + 'rad)' }">
           <div class="drop-content" :style="{
             width: (d.radius * 2) + 'px',
             height: (d.radius * 2) + 'px',
@@ -85,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, reactive, watch } from 'vue'
+import { onMounted, onBeforeUnmount, ref, reactive, watch, computed } from 'vue'
 import { Engine, Render, Runner, Composite, Body, Events } from 'matter-js'
 import { setCanvasAndRenderSize } from '../logic/physics/world'
 import { rebuildTableWalls, getTablePolygon } from '../logic/physics/table'
@@ -96,6 +99,7 @@ import { useGameState, setGameOver, resetGame } from '../state/game'
 import { buildBodyFromCachedHull, precomputeLevelHulls } from '../logic/physics/mask'
 import { startBgLoop, playMergeSfx } from '../logic/audio'
 import { tableUV as tableUVUtil, connectDirForU as connectDirForUUtil, spawnXForMouse as spawnXForMouseUtil } from '../logic/geometry'
+import { getRandomFailPhrase, getRandomWinPhrase } from '../logic/phrases'
 
 const stageRef = ref<HTMLDivElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -318,6 +322,15 @@ function fullyInsideSemiRegion(px: number, py: number, pr: number, regionR: numb
   return (py - pr >= cy) && (dist + pr <= regionR)
 }
 
+// Map id to fail effect class (humorous, not dizzy)
+function failClassFor(id: number): string {
+  const k = id % 4
+  if (k === 0) return 'fail-spin'
+  if (k === 1) return 'fail-fly-up'
+  if (k === 2) return 'fail-fly-down'
+  return 'fail-flash'
+}
+
 function syncAndCleanup() {
   if (!engine) return
   // 处理待合并队列（统一在此帧执行）
@@ -392,7 +405,7 @@ function syncAndCleanup() {
     // 订单完成后的移除队列处理：爆炸效果移除，并减少桌面计数
     if (game.removeQueue.includes(d.id)) {
       Composite.remove(engine!.world, d.body)
-      drops.value.push({ id: d.id, radius: d.radius, color: d.color, image: d.image, x: d.body.position.x, y: d.body.position.y, angle: d.body.angle })
+      drops.value.push({ id: d.id, radius: d.radius, color: d.color, image: d.image, x: d.body.position.x, y: d.body.position.y, angle: d.body.angle, effect: 'consume' } as any)
       game.removeQueue = game.removeQueue.filter(x => x !== d.id)
       recordDespawn(d.level)
       setTimeout(() => {
@@ -415,7 +428,7 @@ function syncAndCleanup() {
     // 批量消费计划：按等级移除剩余数量
     if (game.consumePlan && game.consumePlan.level === d.level && game.consumePlan.count > 0) {
       Composite.remove(engine!.world, d.body)
-      drops.value.push({ id: d.id, radius: d.radius, color: d.color, image: d.image, x: d.body.position.x, y: d.body.position.y, angle: d.body.angle })
+      drops.value.push({ id: d.id, radius: d.radius, color: d.color, image: d.image, x: d.body.position.x, y: d.body.position.y, angle: d.body.angle, effect: 'consume' } as any)
       recordDespawn(d.level)
       game.consumePlan.count -= 1
       if (game.consumePlan.count <= 0) game.consumePlan = null
@@ -687,7 +700,16 @@ function localPointerPoint(ev: PointerEvent) {
 }
 function handlePointerDown(ev: PointerEvent) {
   const target = ev.target as Element | null
-  if (target && (target.closest('.start-btn') || target.closest('.go-restart') || target.closest('.game-over') || target.closest('.welcome-wrap'))) {
+  // 跳过 UI 控件：规则卡片、结束卡片、欢迎层、控制栏与滑块
+  if (target && (
+    target.closest('.start-btn') ||
+    target.closest('.go-restart') ||
+    target.closest('.game-over') ||
+    target.closest('.welcome-wrap') ||
+    target.closest('.controls') ||
+    target.matches('input[type="range"]') ||
+    target.closest('input[type="range"]')
+  )) {
     return
   }
   if (ev.cancelable) ev.preventDefault()
@@ -825,6 +847,14 @@ onBeforeUnmount(() => {
   resizeObserver = null
   stopRefreshGuard()
 })
+const goPhrase = computed(() => (game.win ? getRandomWinPhrase() : getRandomFailPhrase()))
+function formatElapsed(ms?: number | null) {
+  if (!ms || ms <= 0) return '--:--'
+  const s = Math.floor(ms / 1000)
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+}
 </script>
 
 <style scoped>
@@ -1024,13 +1054,13 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(22, 16, 10, 0.55);
+  background: transparent;
   color: #fff;
   font-size: 24px;
   font-weight: 800;
   z-index: 4;
   pointer-events: auto;
-  backdrop-filter: blur(6px);
+  backdrop-filter: none;
 }
 .go-card {
   width: min(520px, 90vw);
@@ -1048,7 +1078,7 @@ onBeforeUnmount(() => {
   margin-bottom: 6px;
 }
 .go-title {
-  font-size: clamp(20px, 4.6vw, 28px);
+  font-size: clamp(20px, 4.6vw, 26px);
   margin: 4px 0 8px;
   font-weight: 800;
 }
@@ -1061,16 +1091,120 @@ onBeforeUnmount(() => {
   appearance: none;
   border: 0;
   border-radius: 999px;
-  padding: 10px 18px;
+  padding: 10px 20px;
   font-size: clamp(14px, 3.8vw, 18px);
-  font-weight: 600;
+  font-weight: 700;
   color: #3b2416;
-  background: linear-gradient(90deg, #ffd38f 0%, #ffc371 100%);
-  box-shadow: 0 6px 18px rgba(255, 124, 24, 0.35);
+  background: linear-gradient(90deg, #ffd38f 0%, #ffc371 50%, #ffd38f 100%);
+  background-size: 200% 200%;
+  box-shadow: 0 8px 24px rgba(255, 124, 24, 0.45);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  position: relative;
+  overflow: hidden;
+  will-change: transform, filter;
+  animation: restartPulse 2.2s ease-in-out infinite, gradientFlow 5s linear infinite;
 }
-.go-restart:hover { filter: brightness(1.08); }
-.go-restart:active { transform: translateY(1px); }
+.go-restart::before {
+  content: '';
+  position: absolute;
+  left: -20%;
+  top: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255,255,255,0.0), rgba(255,255,255,0.35), rgba(255,255,255,0.0));
+  transform: skewX(-20deg);
+  animation: shineSweep 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+.go-restart:hover {
+  filter: brightness(1.12) saturate(1.06);
+  animation-duration: 1.8s;
+}
+.go-restart:active { transform: translateY(1px) scale(0.98); }
+.go-restart:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 145, 48, 0.35), 0 8px 24px rgba(255, 124, 24, 0.45);
+}
+
+/* Keyframes */
+@keyframes restartPulse {
+  0% { transform: translateY(0) scale(1); box-shadow: 0 8px 24px rgba(255, 124, 24, 0.45); }
+  50% { transform: translateY(-2px) scale(1.06); box-shadow: 0 12px 30px rgba(255, 124, 24, 0.55); }
+  100% { transform: translateY(0) scale(1); box-shadow: 0 8px 24px rgba(255, 124, 24, 0.45); }
+}
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes shineSweep {
+  0% { transform: translateX(-120%) skewX(-20deg); opacity: 0; }
+  20% { opacity: 1; }
+  50% { transform: translateX(160%) skewX(-20deg); opacity: 0.9; }
+  100% { transform: translateX(260%) skewX(-20deg); opacity: 0; }
+}
+
+/* Card pop-in for end screen */
+@keyframes goCardPop {
+  0% { opacity: 0; transform: scale(0.92) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.go-card { animation: goCardPop 0.38s ease-out; }
+
+/* Motion reduce */
+@media (prefers-reduced-motion: reduce) {
+  .go-restart { animation: none; }
+  .go-restart::before { animation: none; }
+  .go-card { animation: none; }
+}
+
+/* Consume fade-out (no flash disappear) */
+.drop.consume .drop-content { animation: consumeFade 0.6s ease-out forwards; }
+@keyframes consumeFade {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.6); }
+}
+/* Fail humorous effects (short, not dizzy) */
+@keyframes failSpinKf {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(14deg); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes failFlyUpKf {
+  0% { transform: translate(0,0); }
+  100% { transform: translate(-18px, -26px); }
+}
+@keyframes failFlyDownKf {
+  0% { transform: translate(0,0); }
+  100% { transform: translate(22px, 18px); }
+}
+@keyframes failFlashKf {
+  0% { opacity: 1; filter: none; }
+  25% { opacity: 0.6; filter: hue-rotate(12deg) brightness(1.15); }
+  50% { opacity: 1; filter: none; }
+  75% { opacity: 0.7; filter: hue-rotate(-12deg) brightness(1.12); }
+  100% { opacity: 1; filter: none; }
+}
+.drink.fail-spin .sprite { animation: failSpinKf 1.2s ease-in-out 2; }
+.drink.fail-fly-up { animation: failFlyUpKf 0.8s ease-out 1 forwards; }
+.drink.fail-fly-down { animation: failFlyDownKf 0.8s ease-out 1 forwards; }
+.drink.fail-flash .sprite { animation: failFlashKf 1.0s ease-in-out 2; }
+/* 卡片美化：成功金色系、失败暖红系 + 轻装饰 */
+.go-card { position: relative; }
+.go-card.success { border: 1px solid rgba(255, 198, 98, 0.9); background: linear-gradient(180deg, #fff8ee 0%, #ffe3b8 100%); }
+.go-card.success::after { content: ''; position: absolute; inset: -2px; border-radius: 16px; border: 2px dashed rgba(255, 200, 120, 0.7); pointer-events: none; }
+.go-card.fail { border: 1px solid rgba(255, 120, 120, 0.85); background: linear-gradient(180deg, #fff3f3 0%, #ffd4d4 100%); }
+.go-card.fail::after { content: ''; position: absolute; inset: -2px; border-radius: 16px; border: 2px dashed rgba(255, 140, 140, 0.7); pointer-events: none; }
+
+.go-title { letter-spacing: 0.2px; }
+.pk { font-size: 12px; color: #7a5b45; margin-bottom: 8px; }
+
+/* 成功小装饰：边框闪光 */
+@keyframes borderShine { 0%{ box-shadow: 0 0 0 rgba(255,185,90,0.0);} 50%{ box-shadow: 0 0 16px rgba(255,185,90,0.35);} 100%{ box-shadow: 0 0 0 rgba(255,185,90,0.0);} }
+.go-card.success { animation: borderShine 2.6s ease-in-out infinite; }
+
+/* 失败小装饰：轻微抖动标题 */
+@keyframes titleShake { 0%{ transform: translateX(0);} 50%{ transform: translateX(1.2px);} 100%{ transform: translateX(0);} }
+.go-card.fail .go-title { animation: titleShake 2.4s ease-in-out infinite; }
 </style>

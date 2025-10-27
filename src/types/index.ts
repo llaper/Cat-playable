@@ -12,6 +12,8 @@ export interface Drink {
   angle: number
 }
 
+export type DropEffect = 'consume'
+
 export interface DropItem {
   id: number
   radius: number
@@ -20,4 +22,5 @@ export interface DropItem {
   x: number
   y: number
   angle: number
+  effect?: DropEffect
 }

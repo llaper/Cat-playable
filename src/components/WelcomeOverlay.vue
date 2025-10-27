@@ -13,7 +13,7 @@
       </ul>
 
       <div class="cta">
-        <button class="start-btn" @click="handleStart">开始喵！(≧◡≦)</button>
+        <button class="start-btn" @click="handleStart">继续嗷</button>
       </div>
       <div class="hint">提示：开始后可随时再看规则，猫猫会耐心的～</div>
     </div>

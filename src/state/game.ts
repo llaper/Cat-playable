@@ -43,10 +43,12 @@ export interface GameState {
   consumePlan: { level: number; count: number; image?: string } | null
   nextSpawnLevel: number | null
   orderHistory: { level: number; count: number }[]
-  // 统一管理计时器 ID（store 生命周期控制）
   moodTimerId: number | null
   cooldownTimerId: number | null
   orderUpdateTimerId: number | null
+  // 新增：开始/结束时间戳（用于显示总用时）
+  startedAtMs?: number | null
+  endedAtMs?: number | null
 }
 
 export const useGameStore = defineStore('game', {
@@ -66,28 +68,29 @@ export const useGameStore = defineStore('game', {
     orderHistory: [],
     moodTimerId: null,
     cooldownTimerId: null,
-    orderUpdateTimerId: null
+    orderUpdateTimerId: null,
+    startedAtMs: null,
+    endedAtMs: null
   }),
   actions: {
-    addCoins(amount: number) {
-      this.coins += amount
+    markGameStart() {
+      if (!this.startedAtMs) this.startedAtMs = Date.now()
     },
-    addMood(delta: number) {
-      this.mood = Math.max(0, Math.min(100, Math.round(this.mood + delta)))
+    markGameEnd(win: boolean) {
+      this.over = true
+      this.win = !!win
+      if (!this.endedAtMs) this.endedAtMs = Date.now()
     },
+    addCoins(amount: number) { this.coins += amount },
+    addMood(delta: number) { this.mood = Math.max(0, Math.min(100, Math.round(this.mood + delta))) },
     addBond(delta: number) {
       this.bond = Math.max(0, Math.min(100, Math.round(this.bond + delta)))
       if (this.bond >= 100 && !this.win) {
-        this.win = true
-        this.over = true
+        this.markGameEnd(true)
       }
     },
-    setOrders(orders: GameOrder[]) {
-      this.orders = orders
-    },
-    setGameOver() {
-      this.over = true
-    },
+    setOrders(orders: GameOrder[]) { this.orders = orders },
+    setGameOver() { this.markGameEnd(false) },
     setMoodTimer(id: number | null) { this.moodTimerId = id },
     setCooldownTimer(id: number | null) { this.cooldownTimerId = id },
     setOrderUpdateTimer(id: number | null) { this.orderUpdateTimerId = id },
@@ -110,13 +113,14 @@ export const useGameStore = defineStore('game', {
       this.consumePlan = null
       this.nextSpawnLevel = null
       this.orderHistory = []
-      // 清理计时器 ID
       if (this.moodTimerId) { try { clearInterval(this.moodTimerId as any) } catch {} }
       if (this.cooldownTimerId) { try { clearTimeout(this.cooldownTimerId as any) } catch {} }
       if (this.orderUpdateTimerId) { try { clearTimeout(this.orderUpdateTimerId as any) } catch {} }
       this.moodTimerId = null
       this.cooldownTimerId = null
       this.orderUpdateTimerId = null
+      this.startedAtMs = null
+      this.endedAtMs = null
     }
   }
 })
@@ -128,3 +132,4 @@ export function addBond(delta: number) { return useGameStore().addBond(delta) }
 export function setOrders(orders: GameOrder[]) { return useGameStore().setOrders(orders) }
 export function setGameOver() { return useGameStore().setGameOver() }
 export function resetGame() { return useGameStore().resetGame() }
+export function markGameStart() { return useGameStore().markGameStart() }

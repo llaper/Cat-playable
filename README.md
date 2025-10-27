@@ -1,8 +1,23 @@
-# Vue 3 + TypeScript + Vite
+# 🐱 贪吃猫 - 物理合成游戏
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+一个基于物理引擎的可爱猫咪餐厅游戏，玩家需要通过合成甜点来满足小猫的订单需求，保持小猫的心情愉快。
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## ✨ 游戏特色
+
+- 🎯 **物理合成系统**：使用 Matter.js 物理引擎，真实的物理碰撞和重力效果
+- 😸 **可爱猫咪系统**：小猫会根据心情和状态展现不同的表情和行为
+- 🍰 **甜点合成链**：6种不同等级的甜点，从巧克力到巨无霸蛋糕
+- 💝 **心情管理**：动态心情系统，需要及时满足小猫需求
+- 🎨 **精美UI设计**：现代化界面设计，流畅的动画效果
+- 📱 **响应式设计**：支持不同屏幕尺寸的设备
+
+## 🛠️ 技术栈
+
+- **前端框架**：Vue 3 + TypeScript
+- **构建工具**：Vite
+- **物理引擎**：Matter.js
+- **状态管理**：Pinia
+- **样式**：CSS3 + 响应式设计
 
 ## 猫猫点餐与心情系统
 - 心情值范围 `0-100`，低于 `60` 游戏结束（心情控制在 `src/state/game.ts` 的 `addMood` 中触发）。
@@ -29,12 +44,99 @@ Learn more about the recommended Project Setup and IDE Support in the [Vue Docs 
   - 猫猫点餐：`src/components/OrdersPanel.vue`（显示当前想吃、当前状态与等待秒数）。
 - 入口接线：`src/components/Main.vue`（调用 `ensureCatOrdering()`）。
 
-## 运行与预览
-- `npm install`
-- `npm run dev` 启动后访问终端提示的地址（示例：`http://localhost:5174/`）。
+## 🚀 快速开始
 
-## 游戏规则回顾
-- 猫猫持续点单，吃到想吃的甜点心情变好，随后继续点单。
-- 随等待时间心情逐步变差；等待超过约 `10s` 进入“不耐烦”。
-- 心情低于 `65` 显示“等不及了”，低于 `60` 触发游戏结束。
-- 合并生成物体等级与当前需求相同视为“吃上了”，心情 `+15` 并刷新新订单。
+### 环境要求
+- Node.js 16+ 
+- npm 或 yarn
+
+### 安装与运行
+```bash
+# 克隆项目
+git clone <repository-url>
+cd Playable
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 构建生产版本
+npm run build
+
+# 预览生产版本
+npm run preview
+```
+
+## 🎮 游戏玩法
+
+1. **合成甜点**：拖拽相同的甜点进行合成，创造更高级的甜点
+2. **满足订单**：观察小猫想要的甜点，及时提供对应等级的甜点
+3. **管理心情**：保持小猫心情在60以上，避免游戏结束
+4. **策略规划**：合理安排合成顺序，提高效率
+
+## 📁 项目结构
+
+```
+src/
+├── components/          # Vue组件
+│   ├── Main.vue        # 主游戏界面
+│   ├── Cat.vue         # 猫咪组件
+│   ├── OrdersPanel.vue # 订单面板
+│   └── ScoreBadge.vue  # 心情显示
+├── logic/              # 游戏逻辑
+│   ├── gameplay/       # 游戏玩法逻辑
+│   ├── physics/        # 物理引擎相关
+│   └── quotes.ts       # 经典语句系统
+├── state/              # 状态管理
+│   └── game.ts         # 游戏状态
+└── types/              # TypeScript类型定义
+```
+
+## 🎯 游戏规则详解
+
+### 心情系统
+- **心情值范围**：0-100，低于60时游戏结束
+- **心情衰减**：基础0.5/秒，随等待时长递增0.04 × 等待秒数/秒
+- **心情恢复**：吃到想要的甜点时心情+15
+
+### 猫咪状态
+- 🍽️ **点餐状态**（ordering）：正在思考想要什么甜点
+- 😤 **不耐烦**（impatient）：等待超过10秒开始不耐烦
+- 😋 **享用中**（eating）：吃到了想要的甜点，心情大好
+- 😡 **愤怒**（outraged）：心情低于65，非常不满
+
+### 甜点等级系统
+1. 🍫 **巧克力**（Lv1）- 基础甜点
+2. 🍪 **曲奇**（Lv2）- 两个巧克力合成
+3. 🍩 **甜甜圈**（Lv3）- 两个曲奇合成
+4. 🧁 **马卡龙**（Lv4）- 两个甜甜圈合成
+5. 🍰 **水果蛋糕**（Lv5）- 两个马卡龙合成
+6. 🎂 **巨无霸蛋糕**（Lv6）- 两个水果蛋糕合成
+
+## 🔧 开发说明
+
+### 核心模块
+- **全局状态**：`src/state/game.ts` - 管理心情、猫咪状态等
+- **订单系统**：`src/logic/gameplay/orders.ts` - 处理点餐循环和喂食逻辑
+- **物理引擎**：`src/logic/physics/` - Matter.js物理世界管理
+- **经典语句**：`src/logic/quotes.ts` - 小猫吃饭时的可爱语句
+
+### 主要组件
+- **Main.vue**：主游戏界面，整合所有功能模块
+- **Cat.vue**：猫咪动画和状态显示
+- **OrdersPanel.vue**：显示当前订单和等待时间
+- **ScoreBadge.vue**：心情值显示
+
+## 📄 许可证
+
+MIT License
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request 来改进这个项目！
+
+---
+
+**享受与可爱小猫的甜点时光吧！** 🐱✨
