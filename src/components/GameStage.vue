@@ -8,7 +8,7 @@
         <div class="go-card" :class="game.win ? 'success' : 'fail'">
           <div class="cat-face">{{ goPhrase }}</div>
           <h2 class="go-title">{{ game.win ? '亲密度满喵！' : '这局没撑住喵～' }}</h2>
-          <p v-if="game.win" class="go-desc">总用时：{{ formatElapsed((game.endedAtMs ?? Date.now()) - (game.startedAtMs ?? Date.now())) }}</p>
+          <p v-if="game.win" class="go-desc">总用时：{{ formatElapsed(game.endedAtMs && game.startedAtMs ? game.endedAtMs - game.startedAtMs : 0) }}</p>
           <p v-else class="go-desc">提示：同款撞一撞→升级更高级；别让甜点掉下桌！</p>
           <div class="pk">📸 截图分享，和好友PK！</div>
           <div class="cta"><button class="go-restart" @click="handleRestart">再来一局喵！</button></div>
@@ -95,7 +95,7 @@ import { rebuildTableWalls, getTablePolygon } from '../logic/physics/table'
 import type { Drink, DropItem } from '../types'
 import { getNextLevel, getSpecForLevel } from '../logic/merge-map'
 import { recordMerge, recordSpawn, recordDespawn, ensureCatOrdering, resetOrders } from '../logic/gameplay/orders'
-import { useGameState, setGameOver, resetGame } from '../state/game'
+import { useGameState, setGameOver, resetGame, markGameStart } from '../state/game'
 import { buildBodyFromCachedHull, precomputeLevelHulls } from '../logic/physics/mask'
 import { startBgLoop, playMergeSfx } from '../logic/audio'
 import { tableUV as tableUVUtil, connectDirForU as connectDirForUUtil, spawnXForMouse as spawnXForMouseUtil } from '../logic/geometry'
@@ -656,6 +656,8 @@ function handleRestart() {
   prepareNext()
   // 修复：重启后重新启动发射区空闲守卫（不改变逻辑与时间）
   startRefreshGuard()
+  // 重开游戏时重新记录开始时间
+  markGameStart()
 }
 
 
@@ -849,7 +851,7 @@ onBeforeUnmount(() => {
 })
 const goPhrase = computed(() => (game.win ? getRandomWinPhrase() : getRandomFailPhrase()))
 function formatElapsed(ms?: number | null) {
-  if (!ms || ms <= 0) return '--:--'
+  if (!ms || ms <= 0) return '00:00'
   const s = Math.floor(ms / 1000)
   const m = Math.floor(s / 60)
   const sec = s % 60

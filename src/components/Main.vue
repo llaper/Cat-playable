@@ -19,6 +19,8 @@ function handleStart() {
   showWelcome.value = false
   try { localStorage.setItem('welcome_seen_v1', '1') } catch {}
   startBgLoop()
+  // 用户点击开始游戏时才记录游戏开始时间
+  markGameStart()
 }
 
 // 经典语录（贴纸）：吃饭状态显示 5s
@@ -113,7 +115,7 @@ onMounted(() => {
   setBgmVolume(1.0)
   setSfxVolume(1.0)
   window.dispatchEvent(new CustomEvent('game-started'))
-  markGameStart()
+  // 移除这里的markGameStart()，改为在用户点击开始游戏时调用
 
   try {
     const seen = localStorage.getItem('welcome_seen_v1')
